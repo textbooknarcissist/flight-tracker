@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  SCHEDULED
+  DELAYED
+  EN_ROUTE
+  LANDED
+}
+
+model Booking {
+  id               String        @id @default(uuid())
+  bookingReference String        @unique @map("booking_reference")
+  firstName        String        @map("first_name")
+  lastName         String        @map("last_name")
+  email            String
+  phone            String
+  departureAirport String        @map("departure_airport")
+  arrivalAirport   String        @map("arrival_airport")
+  departureDate    DateTime      @map("departure_date")
+  status           BookingStatus @default(SCHEDULED)
+  seat             String
+  gate             String?
+  delayMinutes     Int           @default(0) @map("delay_minutes")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  updatedByAdminAt DateTime?     @map("updated_by_admin_at")
+
+  @@map("bookings")
+}
+
+model Admin {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  passwordHash String     @map("password_hash")
+  logs         AdminLog[]
+
+  @@map("admins")
+}
+
+model AdminLog {
+  id               String   @id @default(uuid())
+  adminId          String   @map("admin_id")
+  action           String
+  bookingReference String   @map("booking_reference")
+  timestamp        DateTime @default(now())
+  admin            Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_logs")
+}
