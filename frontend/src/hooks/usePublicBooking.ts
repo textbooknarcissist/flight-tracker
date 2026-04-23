@@ -23,15 +23,17 @@ export function usePublicBooking(reference: string | undefined): UsePublicBookin
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    if (!reference) {
-      setError('Missing booking reference.')
-      setIsLoading(false)
-      return
-    }
-
     let cancelled = false
 
     async function load() {
+      if (!reference) {
+        if (!cancelled) {
+          setError('Missing booking reference.')
+          setIsLoading(false)
+        }
+        return
+      }
+
       setIsLoading(true)
 
       try {

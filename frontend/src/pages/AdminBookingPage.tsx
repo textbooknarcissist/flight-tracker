@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import {
@@ -29,16 +29,17 @@ export function AdminBookingPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Sync form state when booking is loaded
-  useEffect(() => {
-    if (booking) {
-      setFormState({
-        status: booking.status,
-        gate: booking.gate ?? '',
-        delayMinutes: String(booking.delayMinutes),
-      })
-    }
-  }, [booking])
+  // Sync form state when booking is loaded (using in-render state update pattern)
+  const [lastSyncedRef, setLastSyncedRef] = useState<string | null>(null)
+  
+  if (booking && booking.bookingReference !== lastSyncedRef) {
+    setLastSyncedRef(booking.bookingReference)
+    setFormState({
+      status: booking.status,
+      gate: booking.gate ?? '',
+      delayMinutes: String(booking.delayMinutes),
+    })
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
