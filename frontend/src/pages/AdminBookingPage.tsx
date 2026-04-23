@@ -4,10 +4,10 @@ import { Link, useParams } from 'react-router-dom'
 
 import {
   BOOKING_STATUS_OPTIONS,
-  getAdminBookingByReference,
   updateAdminBookingStatus,
 } from '../services/admin'
-import type { AdminBooking, BookingStatusLabel } from '../types/api'
+import { useAdminBooking } from '../hooks/useAdminBooking'
+import type { BookingStatusLabel } from '../types/api'
 import { formatDate } from '../utils/formatters'
 
 interface UpdateFormState {
@@ -18,93 +18,64 @@ interface UpdateFormState {
 
 export function AdminBookingPage() {
   const { ref } = useParams()
-  const [booking, setBooking] = useState<AdminBooking | null>(null)
+  const { booking, error: fetchError, isLoading, refetch } = useAdminBooking(ref)
+
   const [formState, setFormState] = useState<UpdateFormState>({
     status: 'Scheduled',
     gate: '',
     delayMinutes: '0',
   })
   const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  // Sync form state when booking is loaded
   useEffect(() => {
-    const bookingReference = ref
-
-    if (!bookingReference) {
-      setError('Missing booking reference.')
-      setIsLoading(false)
-      return
+    if (booking) {
+      setFormState({
+        status: booking.status,
+        gate: booking.gate ?? '',
+        delayMinutes: String(booking.delayMinutes),
+      })
     }
-
-    const safeBookingReference: string = bookingReference
-
-    async function loadBooking() {
-      setIsLoading(true)
-
-      try {
-        const nextBooking = await getAdminBookingByReference(safeBookingReference)
-        setBooking(nextBooking)
-        setFormState({
-          status: nextBooking.status,
-          gate: nextBooking.gate ?? '',
-          delayMinutes: String(nextBooking.delayMinutes),
-        })
-        setError(null)
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Unable to load booking.')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    void loadBooking()
-  }, [ref])
+  }, [booking])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const bookingReference = ref
-
-    if (!bookingReference) {
+    if (!ref) {
       return
     }
 
     setIsSaving(true)
 
     try {
-      const updatedBooking = await updateAdminBookingStatus(bookingReference, {
+      await updateAdminBookingStatus(ref, {
         status: formState.status,
         gate: formState.gate.trim() ? formState.gate.trim().toUpperCase() : null,
         delayMinutes: Number(formState.delayMinutes),
       })
 
-      setBooking(updatedBooking)
-      setFormState({
-        status: updatedBooking.status,
-        gate: updatedBooking.gate ?? '',
-        delayMinutes: String(updatedBooking.delayMinutes),
-      })
       setMessage('Booking updated successfully.')
-      setError(null)
+      setSaveError(null)
+      refetch() // Reload booking data to reflect server state
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Unable to update booking.')
+      setSaveError(submitError instanceof Error ? submitError.message : 'Unable to update booking.')
       setMessage(null)
     } finally {
       setIsSaving(false)
     }
   }
 
-  if (isLoading) {
+  if (isLoading && !booking) {
     return <section className="card loading-card">Loading booking...</section>
   }
 
-  if (error && !booking) {
+  if (fetchError && !booking) {
     return (
       <section className="card empty-state">
         <h2>Booking unavailable</h2>
-        <p>{error}</p>
+        <p>{fetchError}</p>
         <Link to="/admin" className="primary-button">
           Back to dashboard
         </Link>
@@ -209,7 +180,7 @@ export function AdminBookingPage() {
         </label>
 
         {message ? <p className="form-success">{message}</p> : null}
-        {error ? <p className="form-error">{error}</p> : null}
+        {saveError ? <p className="form-error">{saveError}</p> : null}
 
         <button type="submit" className="primary-button" disabled={isSaving}>
           {isSaving ? 'Saving update...' : 'Save update'}

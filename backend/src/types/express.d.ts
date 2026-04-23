@@ -1,8 +1,10 @@
-declare namespace Express {
+import 'express'
+
+declare module 'express-serve-static-core' {
   interface Request {
     admin?: {
-      id: string;
-      username: string;
-    };
+      id: string
+      username: string
+    }
   }
 }

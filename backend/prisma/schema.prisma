@@ -32,6 +32,7 @@ model Booking {
   updatedAt        DateTime      @updatedAt @map("updated_at")
   updatedByAdminAt DateTime?     @map("updated_by_admin_at")
 
+  @@index([createdAt(sort: Desc)])
   @@map("bookings")
 }
 
@@ -49,8 +50,10 @@ model AdminLog {
   adminId          String   @map("admin_id")
   action           String
   bookingReference String   @map("booking_reference")
-  timestamp        DateTime @default(now())
+  createdAt        DateTime @default(now()) @map("created_at")
   admin            Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
+  @@index([bookingReference])
+  @@index([adminId])
   @@map("admin_logs")
 }
