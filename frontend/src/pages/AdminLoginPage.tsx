@@ -27,7 +27,8 @@ export function AdminLoginPage() {
 
     try {
       const response = await loginAdmin(username.trim(), password)
-      setAuth(response.token, response.admin.username)
+      // The token is now in an HttpOnly cookie, so we only store the username.
+      setAuth(response.admin.username)
       navigate(location.state?.from ?? '/admin', { replace: true })
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to log in.')

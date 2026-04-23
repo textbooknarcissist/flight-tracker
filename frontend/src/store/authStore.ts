@@ -1,35 +1,41 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
 interface AuthState {
-  token: string | null
   username: string | null
   isAuthenticated: boolean
-  setAuth: (token: string, username: string) => void
+  /** True while the app is checking the /me endpoint on page load */
+  isRehydrating: boolean
+  setAuth: (username: string) => void
   logout: () => void
+  setRehydrated: (authenticated: boolean, username?: string) => void
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      token: null,
+/**
+ * Auth state lives in memory only — no localStorage persistence.
+ * The JWT is stored in an HttpOnly cookie by the server; the browser sends
+ * it automatically on every request. On page refresh, ProtectedRoute calls
+ * GET /api/admin/me to rehydrate this store from the live cookie.
+ */
+export const useAuthStore = create<AuthState>()((set) => ({
+  username: null,
+  isAuthenticated: false,
+  isRehydrating: true, // assume rehydration is pending until /me responds
+  setAuth: (username) =>
+    set({
+      username,
+      isAuthenticated: true,
+      isRehydrating: false,
+    }),
+  logout: () =>
+    set({
       username: null,
       isAuthenticated: false,
-      setAuth: (token, username) =>
-        set({
-          token,
-          username,
-          isAuthenticated: true,
-        }),
-      logout: () =>
-        set({
-          token: null,
-          username: null,
-          isAuthenticated: false,
-        }),
+      isRehydrating: false,
     }),
-    {
-      name: 'flight-tracker-auth',
-    },
-  ),
-)
+  setRehydrated: (authenticated, username) =>
+    set({
+      username: username ?? null,
+      isAuthenticated: authenticated,
+      isRehydrating: false,
+    }),
+}))

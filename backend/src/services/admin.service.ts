@@ -7,11 +7,17 @@ import { AppError } from "../middleware/errorHandler";
 import {
   AdminBookingResponse,
   AdminLoginResponse,
+  AdminMeResponse,
   BookingStatusLabel,
+  PaginatedBookings,
   UpdateBookingStatusRequest,
   statusEnumToLabel,
   statusLabelToEnum,
 } from "../types/api";
+
+const JWT_COOKIE_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 hours
+export const JWT_COOKIE_MAX_AGE_S = JWT_COOKIE_MAX_AGE_MS / 1000;
+export const JWT_COOKIE_NAME = "auth_token";
 
 function mapAdminBooking(booking: Booking): AdminBookingResponse {
   return {
@@ -34,7 +40,7 @@ function mapAdminBooking(booking: Booking): AdminBookingResponse {
   };
 }
 
-function issueToken(adminId: string, username: string) {
+function issueToken(adminId: string, username: string): string {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
@@ -44,10 +50,11 @@ function issueToken(adminId: string, username: string) {
   return jwt.sign({ adminId, username }, secret, { expiresIn: "8h" });
 }
 
-export async function loginAdmin(username: string, password: string): Promise<AdminLoginResponse> {
-  const admin = await prisma.admin.findUnique({
-    where: { username },
-  });
+export async function loginAdmin(
+  username: string,
+  password: string,
+): Promise<AdminLoginResponse & { token: string }> {
+  const admin = await prisma.admin.findUnique({ where: { username } });
 
   if (!admin) {
     throw new AppError("Invalid username or password.", 401);
@@ -61,18 +68,41 @@ export async function loginAdmin(username: string, password: string): Promise<Ad
 
   return {
     token: issueToken(admin.id, admin.username),
-    admin: {
-      username: admin.username,
-    },
+    admin: { username: admin.username },
   };
 }
 
-export async function listBookings(): Promise<AdminBookingResponse[]> {
-  const bookings = await prisma.booking.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+export async function getAdminMe(adminId: string): Promise<AdminMeResponse> {
+  const admin = await prisma.admin.findUnique({ where: { id: adminId } });
 
-  return bookings.map(mapAdminBooking);
+  if (!admin) {
+    throw new AppError("Admin not found.", 404);
+  }
+
+  return { username: admin.username };
+}
+
+export async function listBookings(
+  page = 1,
+  pageSize = 50,
+): Promise<PaginatedBookings> {
+  const skip = (page - 1) * pageSize;
+
+  const [total, bookings] = await prisma.$transaction([
+    prisma.booking.count(),
+    prisma.booking.findMany({
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+  ]);
+
+  return {
+    total,
+    page,
+    pageSize,
+    bookings: bookings.map(mapAdminBooking),
+  };
 }
 
 export async function getAdminBookingByReference(reference: string): Promise<AdminBookingResponse> {
@@ -91,16 +121,10 @@ function normalizeStatusUpdate(status: BookingStatusLabel, delayMinutes?: number
   const enumStatus = statusLabelToEnum[status];
 
   if (status === "Delayed") {
-    return {
-      status: enumStatus,
-      delayMinutes: delayMinutes ?? 15,
-    };
+    return { status: enumStatus, delayMinutes: delayMinutes ?? 15 };
   }
 
-  return {
-    status: enumStatus,
-    delayMinutes: delayMinutes ?? 0,
-  };
+  return { status: enumStatus, delayMinutes: delayMinutes ?? 0 };
 }
 
 export async function updateBookingStatus(

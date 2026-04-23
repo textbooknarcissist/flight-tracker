@@ -1,4 +1,4 @@
-import { BookingStatusLabel, CreateBookingRequest, UpdateBookingStatusRequest } from "../types/api";
+import type { BookingStatusLabel, CreateBookingRequest, UpdateBookingStatusRequest } from "@shared/types";
 import { AppError } from "../middleware/errorHandler";
 import { normalizeBookingReference } from "./reference";
 
@@ -9,6 +9,10 @@ const GATE_PATTERN = /^[A-Z0-9-]{1,5}$/;
 const BOOKING_REFERENCE_PATTERN = /^FL-[A-Z0-9]{6}$/;
 const STATUS_LABELS: BookingStatusLabel[] = ["Scheduled", "Delayed", "En Route", "Landed"];
 
+const MAX_NAME_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 254; // RFC 5321 limit
+const MAX_PHONE_LENGTH = 20;
+
 function ensureObject(value: unknown, message: string) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AppError(message, 400);
@@ -17,9 +21,13 @@ function ensureObject(value: unknown, message: string) {
   return value as Record<string, unknown>;
 }
 
-function assertString(value: unknown, field: string) {
+function assertString(value: unknown, field: string, maxLength = 255): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new AppError(`${field} is required.`, 400);
+  }
+
+  if (value.trim().length > maxLength) {
+    throw new AppError(`${field} must be ${maxLength} characters or fewer.`, 400);
   }
 
   return value.trim();
@@ -27,10 +35,10 @@ function assertString(value: unknown, field: string) {
 
 export function validateCreateBookingPayload(payload: unknown): CreateBookingRequest {
   const body = ensureObject(payload, "Booking payload must be an object.");
-  const firstName = assertString(body.firstName, "firstName");
-  const lastName = assertString(body.lastName, "lastName");
-  const email = assertString(body.email, "email").toLowerCase();
-  const phone = assertString(body.phone, "phone");
+  const firstName = assertString(body.firstName, "firstName", MAX_NAME_LENGTH);
+  const lastName = assertString(body.lastName, "lastName", MAX_NAME_LENGTH);
+  const email = assertString(body.email, "email", MAX_EMAIL_LENGTH).toLowerCase();
+  const phone = assertString(body.phone, "phone", MAX_PHONE_LENGTH);
   const departureAirport = assertString(body.departureAirport, "departureAirport").toUpperCase();
   const arrivalAirport = assertString(body.arrivalAirport, "arrivalAirport").toUpperCase();
   const departureDate = assertString(body.departureDate, "departureDate");
@@ -84,8 +92,8 @@ export function validateAdminLoginPayload(payload: unknown) {
   const body = ensureObject(payload, "Login payload must be an object.");
 
   return {
-    username: assertString(body.username, "username"),
-    password: assertString(body.password, "password"),
+    username: assertString(body.username, "username", MAX_NAME_LENGTH),
+    password: assertString(body.password, "password", 128),
   };
 }
 

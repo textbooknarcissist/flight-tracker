@@ -1,64 +1,25 @@
+/**
+ * Backend re-exports shared types and adds backend-specific utilities
+ * (enum↔label maps) that the frontend never needs.
+ */
 import { BookingStatus } from "@prisma/client";
 
-export type BookingStatusLabel = "Scheduled" | "Delayed" | "En Route" | "Landed";
+export type {
+  AdminBooking,
+  AdminLoginResponse,
+  AdminMeResponse,
+  BookingStatusLabel,
+  CreateBookingRequest,
+  PaginatedBookings,
+  PublicBooking,
+  UpdateBookingStatusRequest,
+} from "@shared/types";
 
-export interface CreateBookingRequest {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  departureAirport: string;
-  arrivalAirport: string;
-  departureDate: string;
-}
+import type { BookingStatusLabel } from "@shared/types";
 
-export interface PublicBookingResponse {
-  firstName: string;
-  bookingReference: string;
-  route: string;
-  date: string;
-  status: BookingStatusLabel;
-  seat: string;
-  gate: string | null;
-  delayMinutes: number;
-}
-
-export interface AdminBookingResponse {
-  id: string;
-  bookingReference: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  departureAirport: string;
-  arrivalAirport: string;
-  departureDate: string;
-  status: BookingStatusLabel;
-  seat: string;
-  gate: string | null;
-  delayMinutes: number;
-  createdAt: string;
-  updatedAt: string;
-  updatedByAdminAt: string | null;
-}
-
-export interface AdminLoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface AdminLoginResponse {
-  token: string;
-  admin: {
-    username: string;
-  };
-}
-
-export interface UpdateBookingStatusRequest {
-  status: BookingStatusLabel;
-  gate?: string | null;
-  delayMinutes?: number;
-}
+// Re-export response shape aliases the services use internally
+export type PublicBookingResponse = import("@shared/types").PublicBooking;
+export type AdminBookingResponse = import("@shared/types").AdminBooking;
 
 export interface AuthTokenPayload {
   adminId: string;

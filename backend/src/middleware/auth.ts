@@ -1,21 +1,35 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-import { AuthTokenPayload } from "../types/api";
+import type { AuthTokenPayload } from "../types/api";
 import { AppError } from "./errorHandler";
 
+/**
+ * Reads the JWT from either:
+ *   1. The `auth_token` HttpOnly cookie  (preferred — immune to XSS)
+ *   2. The `Authorization: Bearer …` header (kept for API clients / tests)
+ *
+ * Cookie takes precedence. The dual-mode approach keeps automated tests
+ * working without changes while browsers benefit from the secure cookie path.
+ */
 export function requireAdminAuth(req: Request, _res: Response, next: NextFunction) {
-  const authorizationHeader = req.headers.authorization;
-
-  if (!authorizationHeader?.startsWith("Bearer ")) {
-    return next(new AppError("Authorization token is required.", 401));
-  }
-
-  const token = authorizationHeader.replace("Bearer ", "").trim();
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
     return next(new AppError("JWT secret is not configured.", 500, false));
+  }
+
+  // Try cookie first, then Authorization header
+  const cookieToken: string | undefined = req.cookies?.auth_token;
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.replace("Bearer ", "").trim()
+    : undefined;
+
+  const token = cookieToken ?? bearerToken;
+
+  if (!token) {
+    return next(new AppError("Authorization token is required.", 401));
   }
 
   try {

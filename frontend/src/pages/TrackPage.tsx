@@ -2,40 +2,25 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 
 import { BookingStatusCard } from '../components/BookingStatusCard'
-import { getBookingByReference } from '../services/bookings'
-import type { PublicBooking } from '../types/api'
+import { usePublicBooking } from '../hooks/usePublicBooking'
 import { normalizeBookingReference } from '../utils/formatters'
 
 export function TrackPage() {
-  const [reference, setReference] = useState('')
-  const [booking, setBooking] = useState<PublicBooking | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [inputValue, setInputValue] = useState('')
+  const [searchedReference, setSearchedReference] = useState<string | undefined>(undefined)
+  
+  const { booking, error, isLoading, refetch } = usePublicBooking(searchedReference)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    const normalizedReference = normalizeBookingReference(reference)
-
-    if (!normalizedReference) {
-      setError('Enter a booking reference first.')
-      setBooking(null)
+    const normalized = normalizeBookingReference(inputValue)
+    
+    if (!normalized) {
       return
     }
-
-    setIsLoading(true)
-
-    try {
-      const nextBooking = await getBookingByReference(normalizedReference)
-      setBooking(nextBooking)
-      setError(null)
-      setReference(normalizedReference)
-    } catch (lookupError) {
-      setBooking(null)
-      setError(lookupError instanceof Error ? lookupError.message : 'Unable to track booking.')
-    } finally {
-      setIsLoading(false)
-    }
+    
+    setSearchedReference(normalized)
+    setInputValue(normalized)
   }
 
   return (
@@ -51,19 +36,33 @@ export function TrackPage() {
 
         <form className="inline-form" onSubmit={handleSubmit}>
           <input
-            value={reference}
-            onChange={(event) => setReference(event.target.value.toUpperCase())}
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value.toUpperCase())}
             placeholder="FL-ABC123"
           />
-          <button type="submit" className="primary-button" disabled={isLoading}>
-            {isLoading ? 'Checking...' : 'Track booking'}
+          <button type="submit" className="primary-button" disabled={isLoading && !!searchedReference}>
+            {isLoading && !!searchedReference ? 'Checking...' : 'Track booking'}
           </button>
         </form>
 
-        {error ? <p className="form-error">{error}</p> : null}
+        {error && searchedReference ? <p className="form-error">{error}</p> : null}
       </section>
 
-      {booking ? <BookingStatusCard booking={booking} /> : null}
+      {booking ? (
+        <div className="stack">
+          <div className="actions-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button 
+              type="button" 
+              className="ghost-button" 
+              onClick={refetch} 
+              disabled={isLoading}
+            >
+              {isLoading ? 'Refreshing...' : 'Refresh status'}
+            </button>
+          </div>
+          <BookingStatusCard booking={booking} />
+        </div>
+      ) : null}
     </div>
   )
 }
