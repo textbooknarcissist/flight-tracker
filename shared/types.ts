@@ -32,8 +32,9 @@ export interface UpdateBookingStatusRequest {
 export interface PublicBooking {
   firstName: string
   bookingReference: string
-  route: string
-  date: string
+  departureAirport: string
+  arrivalAirport: string
+  departureDate: string
   status: BookingStatusLabel
   seat: string
   gate: string | null

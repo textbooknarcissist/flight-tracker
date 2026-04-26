@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
@@ -35,7 +34,6 @@ app.use(
 );
 app.use(helmet());
 app.use(morgan("dev"));
-app.use(cookieParser());
 app.use(express.json());
 app.use(globalApiLimiter);
 

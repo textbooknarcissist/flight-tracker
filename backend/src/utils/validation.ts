@@ -69,11 +69,7 @@ export function validateCreateBookingPayload(payload: unknown): CreateBookingReq
     throw new AppError("departureDate must be a valid ISO date.", 400);
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  parsedDate.setHours(0, 0, 0, 0);
-
-  if (parsedDate < today) {
+  if (parsedDate.getTime() < Date.now()) {
     throw new AppError("departureDate cannot be in the past.", 400);
   }
 

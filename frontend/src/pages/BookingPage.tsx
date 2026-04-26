@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 
 import { BookingForm } from '../components/BookingForm'
-import { createBooking } from '../services/bookings'
+import { useCreateBooking } from '../hooks/useCreateBooking'
 import type { CreateBookingRequest } from '../types/api'
 
 export function BookingPage() {
   const navigate = useNavigate()
+  const { create } = useCreateBooking()
 
   async function handleCreateBooking(payload: CreateBookingRequest) {
-    const booking = await createBooking(payload)
+    const booking = await create(payload)
     navigate(`/boarding/${booking.bookingReference}`)
   }
 

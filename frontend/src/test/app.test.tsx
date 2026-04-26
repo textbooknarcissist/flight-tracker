@@ -23,6 +23,8 @@ vi.mock('../services/admin', async () => {
   return {
     ...actual,
     loginAdmin: vi.fn(),
+    logoutAdmin: vi.fn(),
+    getAdminMe: vi.fn(),
     getAdminBookings: vi.fn(),
     getAdminBookingByReference: vi.fn(),
     updateAdminBookingStatus: vi.fn(),
@@ -31,14 +33,18 @@ vi.mock('../services/admin', async () => {
 
 const mockedCreateBooking = vi.mocked(bookingService.createBooking)
 const mockedGetBookingByReference = vi.mocked(bookingService.getBookingByReference)
+const mockedGetAdminMe = vi.mocked(adminService.getAdminMe)
+const mockedGetAdminBookings = vi.mocked(adminService.getAdminBookings)
 const mockedGetAdminBookingByReference = vi.mocked(adminService.getAdminBookingByReference)
 const mockedUpdateAdminBookingStatus = vi.mocked(adminService.updateAdminBookingStatus)
+const mockedLogoutAdmin = vi.mocked(adminService.logoutAdmin)
 
 const publicBooking: PublicBooking = {
   firstName: 'Ada',
   bookingReference: 'FL-ABC123',
-  route: 'LOS -> ABV',
-  date: '2030-05-01T10:30:00.000Z',
+  departureAirport: 'LOS',
+  arrivalAirport: 'ABV',
+  departureDate: '2030-05-01T10:30:00.000Z',
   status: 'Scheduled',
   seat: '12A',
   gate: null,
@@ -51,11 +57,9 @@ const adminBooking: AdminBooking = {
   lastName: 'Okafor',
   email: 'ada@example.com',
   phone: '+2348000000000',
-  departureAirport: 'LOS',
-  arrivalAirport: 'ABV',
-  departureDate: publicBooking.date,
-  createdAt: publicBooking.date,
-  updatedAt: publicBooking.date,
+  departureDate: publicBooking.departureDate,
+  createdAt: publicBooking.departureDate,
+  updatedAt: publicBooking.departureDate,
   updatedByAdminAt: null,
 }
 
@@ -70,6 +74,8 @@ function renderApp(initialEntry = '/') {
 describe('frontend app', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedGetAdminMe.mockRejectedValue(new Error('Unauthorized'))
+    mockedLogoutAdmin.mockResolvedValue(undefined)
   })
 
   it('shows booking form validation errors before submit', async () => {
@@ -124,9 +130,9 @@ describe('frontend app', () => {
   it('updates a booking from the admin detail page', async () => {
     const user = userEvent.setup()
     useAuthStore.setState({
-      token: 'token',
       username: 'ops-admin',
       isAuthenticated: true,
+      isRehydrating: false,
     })
 
     mockedGetAdminBookingByReference.mockResolvedValue(adminBooking)
@@ -157,5 +163,53 @@ describe('frontend app', () => {
     })
 
     expect(await screen.findByText(/booking updated successfully/i)).toBeInTheDocument()
+  })
+
+  it('clears stale booking data after a failed track lookup', async () => {
+    const user = userEvent.setup()
+    mockedGetBookingByReference
+      .mockResolvedValueOnce(publicBooking)
+      .mockRejectedValueOnce(new Error('Booking not found.'))
+
+    renderApp('/track')
+
+    await user.type(screen.getByPlaceholderText(/fl-abc123/i), 'FL-ABC123')
+    await user.click(screen.getByRole('button', { name: /track booking/i }))
+
+    expect(await screen.findByText(/trip details/i)).toBeInTheDocument()
+
+    await user.clear(screen.getByPlaceholderText(/fl-abc123/i))
+    await user.type(screen.getByPlaceholderText(/fl-abc123/i), 'FL-MISS1')
+    await user.click(screen.getByRole('button', { name: /track booking/i }))
+
+    expect(await screen.findByText(/booking not found/i)).toBeInTheDocument()
+    expect(screen.queryByText(/trip details/i)).not.toBeInTheDocument()
+  })
+
+  it('logs out from the admin dashboard through the API', async () => {
+    const user = userEvent.setup()
+    useAuthStore.setState({
+      username: 'ops-admin',
+      isAuthenticated: true,
+      isRehydrating: false,
+    })
+    mockedGetAdminBookings.mockResolvedValue({
+      bookings: [adminBooking],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    })
+
+    renderApp('/admin')
+
+    expect(await screen.findByText(/welcome back, ops-admin/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /log out/i }))
+
+    await waitFor(() => {
+      expect(mockedLogoutAdmin).toHaveBeenCalledTimes(1)
+    })
+    expect(await screen.findByText(/control live flight updates/i)).toBeInTheDocument()
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
   })
 })

@@ -28,6 +28,7 @@ export function usePublicBooking(reference: string | undefined): UsePublicBookin
     async function load() {
       if (!reference) {
         if (!cancelled) {
+          setBooking(null)
           setError('Missing booking reference.')
           setIsLoading(false)
         }
@@ -44,6 +45,7 @@ export function usePublicBooking(reference: string | undefined): UsePublicBookin
         }
       } catch (err) {
         if (!cancelled) {
+          setBooking(null)
           setError(err instanceof Error ? err.message : 'Unable to load booking.')
         }
       } finally {

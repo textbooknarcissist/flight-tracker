@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { Booking, BookingStatus } from "@prisma/client";
+import { Booking, BookingStatus, Prisma } from "@prisma/client";
 import jwt from "jsonwebtoken";
 
 import { prisma } from "../config/prisma";
@@ -148,18 +148,33 @@ export async function updateBookingStatus(
     updateData.gate = payload.gate;
   }
 
-  const booking = await prisma.booking.update({
-    where: { bookingReference: reference },
-    data: updateData,
-  });
+  try {
+    const booking = await prisma.$transaction(async (tx) => {
+      const updatedBooking = await tx.booking.update({
+        where: { bookingReference: reference },
+        data: updateData,
+      });
 
-  await prisma.adminLog.create({
-    data: {
-      adminId,
-      action: `Updated booking to ${statusEnumToLabel[booking.status]}`,
-      bookingReference: booking.bookingReference,
-    },
-  });
+      await tx.adminLog.create({
+        data: {
+          adminId,
+          action: `Updated booking to ${statusEnumToLabel[updatedBooking.status]}`,
+          bookingReference: updatedBooking.bookingReference,
+        },
+      });
 
-  return mapAdminBooking(booking);
+      return updatedBooking;
+    });
+
+    return mapAdminBooking(booking);
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new AppError("Booking not found.", 404);
+    }
+
+    throw error;
+  }
 }

@@ -7,9 +7,9 @@ import { useAuthStore } from '../store/authStore'
 beforeEach(() => {
   window.localStorage.clear()
   useAuthStore.setState({
-    token: null,
     username: null,
     isAuthenticated: false,
+    isRehydrating: false,
   })
 
   Object.defineProperty(window, 'matchMedia', {

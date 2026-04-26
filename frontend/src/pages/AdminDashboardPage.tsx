@@ -2,11 +2,12 @@ import { useDeferredValue, useState } from 'react'
 
 import { AdminBookingTable } from '../components/AdminBookingTable'
 import { useAdminBookings } from '../hooks/useAdminBookings'
+import { useAdminLogout } from '../hooks/useAdminLogout'
 import { useAuthStore } from '../store/authStore'
 
 export function AdminDashboardPage() {
   const username = useAuthStore((state) => state.username)
-  const logoutStore = useAuthStore((state) => state.logout)
+  const { error: logoutError, isSubmitting: isLoggingOut, logout } = useAdminLogout()
   
   const [searchTerm, setSearchTerm] = useState('')
   const deferredSearchTerm = useDeferredValue(searchTerm)
@@ -21,11 +22,6 @@ export function AdminDashboardPage() {
     setPage, 
     refetch 
   } = useAdminBookings(50)
-
-  const handleLogout = () => {
-    logoutStore()
-    // The 401 interceptor or ProtectedRoute will handle the actual redirect
-  }
 
   const normalizedTerm = deferredSearchTerm.trim().toLowerCase()
   
@@ -61,8 +57,8 @@ export function AdminDashboardPage() {
             <button type="button" className="ghost-button" onClick={refetch} disabled={isLoading}>
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </button>
-            <button type="button" className="ghost-button" onClick={handleLogout}>
-              Log out
+            <button type="button" className="ghost-button" onClick={() => void logout()} disabled={isLoggingOut}>
+              {isLoggingOut ? 'Logging out...' : 'Log out'}
             </button>
           </div>
         </div>
@@ -77,6 +73,7 @@ export function AdminDashboardPage() {
       </section>
 
       {error ? <section className="card empty-state">{error}</section> : null}
+      {logoutError ? <section className="card empty-state">{logoutError}</section> : null}
       
       {isLoading && bookings.length === 0 ? (
         <section className="card loading-card">Loading bookings...</section>

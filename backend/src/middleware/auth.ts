@@ -4,6 +4,23 @@ import jwt from "jsonwebtoken";
 import type { AuthTokenPayload } from "../types/api";
 import { AppError } from "./errorHandler";
 
+function readCookieValue(cookieHeader: string | undefined, name: string) {
+  if (!cookieHeader) {
+    return undefined;
+  }
+
+  const cookie = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+
+  if (!cookie) {
+    return undefined;
+  }
+
+  return decodeURIComponent(cookie.slice(name.length + 1));
+}
+
 /**
  * Reads the JWT from either:
  *   1. The `auth_token` HttpOnly cookie  (preferred — immune to XSS)
@@ -20,7 +37,7 @@ export function requireAdminAuth(req: Request, _res: Response, next: NextFunctio
   }
 
   // Try cookie first, then Authorization header
-  const cookieToken: string | undefined = req.cookies?.auth_token;
+  const cookieToken = readCookieValue(req.headers.cookie, "auth_token");
   const authHeader = req.headers.authorization;
   const bearerToken = authHeader?.startsWith("Bearer ")
     ? authHeader.replace("Bearer ", "").trim()

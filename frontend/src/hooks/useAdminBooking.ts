@@ -22,6 +22,7 @@ export function useAdminBooking(reference: string | undefined): UseAdminBookingR
 
   useEffect(() => {
     if (!reference) {
+      setBooking(null)
       setError('Missing booking reference.')
       setIsLoading(false)
       return
@@ -40,6 +41,7 @@ export function useAdminBooking(reference: string | undefined): UseAdminBookingR
         }
       } catch (err) {
         if (!cancelled) {
+          setBooking(null)
           setError(err instanceof Error ? err.message : 'Unable to load booking.')
         }
       } finally {

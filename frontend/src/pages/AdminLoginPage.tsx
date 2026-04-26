@@ -2,18 +2,16 @@ import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { loginAdmin } from '../services/admin'
+import { useAdminLogin } from '../hooks/useAdminLogin'
 import { useAuthStore } from '../store/authStore'
 
 export function AdminLoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  const setAuth = useAuthStore((state) => state.setAuth)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { login, error, isSubmitting } = useAdminLogin()
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -23,18 +21,11 @@ export function AdminLoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setIsSubmitting(true)
 
     try {
-      const response = await loginAdmin(username.trim(), password)
-      // The token is now in an HttpOnly cookie, so we only store the username.
-      setAuth(response.admin.username)
+      await login(username.trim(), password)
       navigate(location.state?.from ?? '/admin', { replace: true })
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Unable to log in.')
-    } finally {
-      setIsSubmitting(false)
-    }
+    } catch {}
   }
 
   return (

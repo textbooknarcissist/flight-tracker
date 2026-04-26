@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import type { Booking } from "@prisma/client";
 
 const { prismaMock } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const { prismaMock } = vi.hoisted(() => ({
     adminLog: {
       create: vi.fn(),
     },
+    $transaction: vi.fn(),
     $disconnect: vi.fn(),
   },
 }));
@@ -58,6 +60,13 @@ describe("backend app", () => {
     process.env.FRONTEND_ORIGIN = "http://localhost:5173";
     adminLoginLimiter.resetKey("::ffff:127.0.0.1");
     adminLoginLimiter.resetKey("::1");
+    prismaMock.$transaction.mockImplementation(async (arg: unknown) => {
+      if (typeof arg === "function") {
+        return arg(prismaMock);
+      }
+
+      return Promise.all(arg as Promise<unknown>[]);
+    });
   });
 
   it("rejects invalid booking payloads", async () => {
@@ -71,6 +80,7 @@ describe("backend app", () => {
 
   it("creates a booking with generated defaults", async () => {
     prismaMock.booking.create.mockResolvedValue(makeBooking());
+    const departureDate = "2030-05-01T10:30:00.000Z";
 
     const response = await request(app).post("/api/bookings").send({
       firstName: "Ada",
@@ -79,13 +89,23 @@ describe("backend app", () => {
       phone: "+2348000000000",
       departureAirport: "LOS",
       arrivalAirport: "ABV",
-      departureDate: "2030-05-01T10:30:00.000Z",
+      departureDate,
     });
 
     expect(response.status).toBe(201);
     expect(response.body.bookingReference).toMatch(/^FL-/);
     expect(response.body.status).toBe("Scheduled");
     expect(response.body.seat).toBe("12A");
+    expect(response.body.departureAirport).toBe("LOS");
+    expect(response.body.arrivalAirport).toBe("ABV");
+    expect(response.body.departureDate).toBe(departureDate);
+    expect(prismaMock.booking.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          departureDate: new Date(departureDate),
+        }),
+      }),
+    );
   });
 
   it("returns only public-safe booking fields for lookup", async () => {
@@ -98,6 +118,24 @@ describe("backend app", () => {
     expect(response.body.email).toBeUndefined();
     expect(response.body.phone).toBeUndefined();
     expect(response.body.status).toBe("Scheduled");
+    expect(response.body.departureAirport).toBe("LOS");
+    expect(response.body.arrivalAirport).toBe("ABV");
+    expect(response.body.departureDate).toBe("2030-05-01T10:30:00.000Z");
+  });
+
+  it("rejects booking creation for a past datetime", async () => {
+    const response = await request(app).post("/api/bookings").send({
+      firstName: "Ada",
+      lastName: "Okafor",
+      email: "ada@example.com",
+      phone: "+2348000000000",
+      departureAirport: "LOS",
+      arrivalAirport: "ABV",
+      departureDate: "2000-05-01T10:30:00.000Z",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/cannot be in the past/i);
   });
 
   it("rejects bad admin credentials", async () => {
@@ -135,6 +173,19 @@ describe("backend app", () => {
     expect(response.status).toBe(401);
   });
 
+  it("clears the auth cookie on logout", async () => {
+    const token = jwt.sign({ adminId: "admin-1", username: "ops-admin" }, "test-secret");
+
+    const response = await request(app)
+      .post("/api/admin/logout")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe("Logged out.");
+    expect(response.headers["set-cookie"]?.[0]).toContain("auth_token=");
+  });
+
   it("allows an authorized admin to update booking status and write a log", async () => {
     prismaMock.booking.update.mockResolvedValue(
       makeBooking({
@@ -167,5 +218,29 @@ describe("backend app", () => {
         bookingReference: "FL-ABC123",
       }),
     });
+  });
+
+  it("returns 404 when an admin updates a missing booking", async () => {
+    prismaMock.booking.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("missing booking", {
+        code: "P2025",
+        clientVersion: "6.18.0",
+      }),
+    );
+
+    const token = jwt.sign({ adminId: "admin-1", username: "ops-admin" }, "test-secret");
+
+    const response = await request(app)
+      .patch("/api/admin/bookings/FL-MISS1/status")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        status: "Delayed",
+        gate: "B2",
+        delayMinutes: 25,
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe("Booking not found.");
+    expect(prismaMock.adminLog.create).not.toHaveBeenCalled();
   });
 });

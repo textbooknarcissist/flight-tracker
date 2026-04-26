@@ -1,11 +1,9 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import {
-  BOOKING_STATUS_OPTIONS,
-  updateAdminBookingStatus,
-} from '../services/admin'
+import { BOOKING_STATUS_OPTIONS } from '../services/admin'
+import { useAdminBookingUpdate } from '../hooks/useAdminBookingUpdate'
 import { useAdminBooking } from '../hooks/useAdminBooking'
 import type { BookingStatusLabel } from '../types/api'
 import { formatDate } from '../utils/formatters'
@@ -19,6 +17,7 @@ interface UpdateFormState {
 export function AdminBookingPage() {
   const { ref } = useParams()
   const { booking, error: fetchError, isLoading, refetch } = useAdminBooking(ref)
+  const { error: saveError, isSaving, update } = useAdminBookingUpdate()
 
   const [formState, setFormState] = useState<UpdateFormState>({
     status: 'Scheduled',
@@ -26,20 +25,18 @@ export function AdminBookingPage() {
     delayMinutes: '0',
   })
   const [message, setMessage] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
 
-  // Sync form state when booking is loaded (using in-render state update pattern)
-  const [lastSyncedRef, setLastSyncedRef] = useState<string | null>(null)
-  
-  if (booking && booking.bookingReference !== lastSyncedRef) {
-    setLastSyncedRef(booking.bookingReference)
+  useEffect(() => {
+    if (!booking) {
+      return
+    }
+
     setFormState({
       status: booking.status,
       gate: booking.gate ?? '',
       delayMinutes: String(booking.delayMinutes),
     })
-  }
+  }, [booking])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -48,23 +45,17 @@ export function AdminBookingPage() {
       return
     }
 
-    setIsSaving(true)
-
     try {
-      await updateAdminBookingStatus(ref, {
+      await update(ref, {
         status: formState.status,
         gate: formState.gate.trim() ? formState.gate.trim().toUpperCase() : null,
         delayMinutes: Number(formState.delayMinutes),
       })
 
       setMessage('Booking updated successfully.')
-      setSaveError(null)
       refetch() // Reload booking data to reflect server state
-    } catch (submitError) {
-      setSaveError(submitError instanceof Error ? submitError.message : 'Unable to update booking.')
+    } catch {
       setMessage(null)
-    } finally {
-      setIsSaving(false)
     }
   }
 

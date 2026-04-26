@@ -10,8 +10,9 @@ function mapPublicBooking(booking: Booking): PublicBookingResponse {
   return {
     firstName: booking.firstName,
     bookingReference: booking.bookingReference,
-    route: `${booking.departureAirport} -> ${booking.arrivalAirport}`,
-    date: booking.departureDate.toISOString(),
+    departureAirport: booking.departureAirport,
+    arrivalAirport: booking.arrivalAirport,
+    departureDate: booking.departureDate.toISOString(),
     status: statusEnumToLabel[booking.status],
     seat: booking.seat,
     gate: booking.gate,

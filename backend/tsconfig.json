@@ -1,14 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "Node10",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "resolveJsonModule": true,
     "types": ["node"],
     "baseUrl": ".",
@@ -16,6 +17,13 @@
       "@shared/*": ["../shared/*"]
     }
   },
-  "include": ["server.ts", "src/**/*.ts", "src/**/*.d.ts", "prisma/**/*.ts", "tests/**/*.ts"],
+  "include": [
+    "server.ts",
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "prisma/**/*.ts",
+    "tests/**/*.ts",
+    "../shared/**/*.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }

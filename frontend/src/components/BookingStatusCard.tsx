@@ -16,8 +16,6 @@ export function BookingStatusCard({
   title = 'Trip details',
   footer,
 }: BookingStatusCardProps) {
-  const [departureAirport, arrivalAirport] = booking.route.split(' -> ')
-
   return (
     <section className="card booking-card">
       <div className="card-header">
@@ -40,12 +38,12 @@ export function BookingStatusCard({
         <div>
           <span className="label">Route</span>
           <strong>
-            {departureAirport} to {arrivalAirport}
+            {booking.departureAirport} to {booking.arrivalAirport}
           </strong>
         </div>
         <div>
           <span className="label">Departure</span>
-          <strong>{formatDate(booking.date)}</strong>
+          <strong>{formatDate(booking.departureDate)}</strong>
         </div>
         <div>
           <span className="label">Seat</span>
